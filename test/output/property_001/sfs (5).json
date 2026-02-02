@@ -1,0 +1,15 @@
+{
+    "image_name": "sfs (5).jpg",
+    "objects_detected": {
+        "a celing light": 6,
+        "a kitchen cabinets": 2,
+        "a sofa": 10,
+        "a wood floor": 3,
+        "a carpet": 1
+    },
+    "primary_label": "unknown",
+    "primary_confidence": "None",
+    "cleanliness_level": "None",
+    "cleanliness_reason": "None",
+    "room_type": "kitchen"
+}

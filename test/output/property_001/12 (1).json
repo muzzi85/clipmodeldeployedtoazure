@@ -1,0 +1,13 @@
+{
+    "image_name": "12 (1).jpg",
+    "objects_detected": {
+        "a celing light": 2,
+        "a kitchen stove": 1,
+        "a kitchen cabinets": 13
+    },
+    "primary_label": "unknown",
+    "primary_confidence": "None",
+    "cleanliness_level": "None",
+    "cleanliness_reason": "None",
+    "room_type": "kitchen"
+}

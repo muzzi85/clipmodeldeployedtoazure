@@ -1,0 +1,12 @@
+{
+    "image_name": "fllor.jpg",
+    "objects_detected": {
+        "an floorplan": 38,
+        "a garden": 1
+    },
+    "primary_label": "a photo of an floorplan",
+    "primary_confidence": 0.99951171875,
+    "cleanliness_level": 1,
+    "cleanliness_reason": "This is a very clean room, everything is tidy and organized.",
+    "room_type": "outdoor"
+}

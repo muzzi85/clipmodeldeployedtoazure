@@ -1,0 +1,12 @@
+{
+    "image_name": "ss (6).jpg",
+    "objects_detected": {
+        "a floorplan": 38,
+        "a garden": 1
+    },
+    "primary_label": "a photo of a floorplan",
+    "primary_confidence": 0.99951171875,
+    "cleanliness_level": 1,
+    "cleanliness_reason": "This is a very clean room, everything is tidy and organized.",
+    "room_type": "floorplan"
+}

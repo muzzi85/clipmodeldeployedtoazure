@@ -1,0 +1,16 @@
+{
+    "image_name": "12 (2).jpg",
+    "objects_detected": {
+        "a kitchen cabinets": 14,
+        "stairs": 1,
+        "a dinning table and chairs": 1,
+        "a tiles": 2,
+        "a celing light": 1,
+        "a refrigerator": 1
+    },
+    "primary_label": "unknown",
+    "primary_confidence": "None",
+    "cleanliness_level": "None",
+    "cleanliness_reason": "None",
+    "room_type": "kitchen"
+}

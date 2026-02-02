@@ -1,0 +1,13 @@
+{
+    "image_name": "ss (5).jpg",
+    "objects_detected": {
+        "a celing light": 8,
+        "a sofa": 2,
+        "a wood floor": 42
+    },
+    "primary_label": "unknown",
+    "primary_confidence": "None",
+    "cleanliness_level": "None",
+    "cleanliness_reason": "None",
+    "room_type": "living room"
+}

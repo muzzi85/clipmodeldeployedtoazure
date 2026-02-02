@@ -1,0 +1,12 @@
+{
+    "image_name": "ss (3).jpg",
+    "objects_detected": {
+        "a sofa": 15,
+        "a wood floor": 25
+    },
+    "primary_label": "unknown",
+    "primary_confidence": "None",
+    "cleanliness_level": "None",
+    "cleanliness_reason": "None",
+    "room_type": "living room"
+}

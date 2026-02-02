@@ -1,0 +1,7 @@
+torch
+torchvision
+transformers
+pillow
+azure-storage-blob
+azure-storage-queue
+numpy
