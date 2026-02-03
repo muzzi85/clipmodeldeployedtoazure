@@ -225,6 +225,22 @@ az storage message put   --queue-name rightmove-images-queue   --account-name ri
   }'
 
 
+  ✅ What you should do:
+
+Wait for 0000005 to finish activating.
+
+Once active, check that replicas are running (5 in your case).
+
+Monitor the queue logs — processing should speed up.
+
+You can force it active via CLI if needed:
+
+az containerapp revision activate \
+    --name clip-worker-app \
+    --resource-group rightmove-rg \
+    --revision clip-worker-app--0000005
+
+
 ## check app container updates 
 
 az containerapp logs show --name clip-worker-app --resource-group rightmove-rg --follow
