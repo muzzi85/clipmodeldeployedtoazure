@@ -160,4 +160,72 @@ az storage message put \
 
 docker run -e AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=rightmoveukstorage;AccountKey="key";EndpointSuffix=core.windows.net" clip-worker
 
+# Delete all messages in the queue
+az storage message clear \
+  --queue-name rightmove-images-queue \
+  --account-name rightmoveukstorage \
+  --account-key key
+
+
+## stop a job
+
+az storage blob delete \
+  --container-name london-rent \
+  --name "01-02-2026/rent_london_rightmove_images/121284986/1.json" \
+  --account-name rightmoveukstorage \
+  --account-key key
+
+## clear messages
+az storage message clear   --queue-name rightmove-images-queue   --account-name rightmoveukstorage   --account-key key
+
+
+## update the container app
+
+az containerapp update   --name clip-worker-app   --resource-group rightmove-rg   --image rightmoveacrclp.azurecr.io/clip-worker:latest   --set-env-vars AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=rightmoveukstorage;AccountKey=key INPUT_DIR="/data/input" OUTPUT_DIR="/data/output" BATCH_SIZE="32"
+
+## tail last contain app logs 
+
+az containerapp logs show \
+  --name clip-worker-app \
+  --resource-group rightmove-rg \
+  --tail 50
+
+## delete json
+
+az storage blob delete \
+  --container-name london-rent \
+  --name 01-02-2026/rent_london_rightmove_images/121284986/2.json \
+  --account-name rightmoveukstorage
+
+## delete all jons in folder 
+
+az storage blob delete-batch \
+  --account-name rightmoveukstorage \
+  --source london-rent \
+  --pattern "01-02-2026/rent_london_rightmove_images/121284986/*.json" \
+  --account-key key
+
+az storage blob delete-batch \
+  --account-name rightmoveukstorage \
+  --source london-rent \
+  --pattern "01-02-2026/rent_london_rightmove_images/124719503/*.json" \
+  --account-key key
+
+
+## start  job
+
+az storage message put   --queue-name rightmove-images-queue   --account-name rightmoveukstorage   --account-key key   --content '{
+    "container": "london-rent",
+    "prefix": "01-02-2026/rent_london_rightmove_images/124719503/"
+  }'
+
+az storage message put   --queue-name rightmove-images-queue   --account-name rightmoveukstorage   --account-key key   --content '{
+    "container": "london-rent",
+    "prefix": ""
+  }'
+
+
+## check app container updates 
+
+az containerapp logs show --name clip-worker-app --resource-group rightmove-rg --follow
 
