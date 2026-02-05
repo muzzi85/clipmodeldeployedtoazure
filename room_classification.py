@@ -53,12 +53,11 @@ def crop_image_with_overlap(image_path, crop_size=500, overlap_ratio=0.7, includ
 from PIL import Image, ImageDraw, ImageFont
 import matplotlib.pyplot as plt
 from collections import defaultdict
-
 def detect_objects_multiscale_annotate(
     image_path, 
     n_scales=4, 
     overlap_ratio=0.1, 
-    confidence_threshold=0.7
+    confidence_threshold=0.65
 ):
     """
     Multi-scale object detection + annotation using adaptive crops.
@@ -68,13 +67,22 @@ def detect_objects_multiscale_annotate(
         annotated_image (PIL.Image)
         label_summary (dict)
     """
-    image = Image.open(image_path).convert("RGB")
+    if isinstance(image_path, str):
+        image = Image.open(image_path).convert("RGB")
+    elif isinstance(image_path, Image.Image):
+        image = image_path.convert("RGB")
+    else:
+        raise ValueError("Input must be a file path or PIL.Image")
+        #image = image_path
+    print("imageitself", image)
+    print("image size",image.size )
+
     W, H = image.size
     min_dim = min(W, H)
     
     # Automatically determine scales (progressively smaller)
-    scales = [int(min_dim / (2 ** (i))) for i in range(n_scales, 0, -1)]
-    scales = sorted(set(s for s in scales if s > 60))
+    scales = sorted(set(int(min_dim / (2 ** i)) for i in range(n_scales, 0, -1) if int(min_dim / (2 ** i)) > 60))
+
     print(f"🧩 Scales: {scales}")
 
     # Prepare drawing surface
@@ -85,29 +93,49 @@ def detect_objects_multiscale_annotate(
     except:
         font = ImageFont.load_default()
 
-    detections = []                # (cx, cy, label, conf)
-    label_counts = defaultdict(int)  # unique label → count
+    detections = []
+    label_counts = defaultdict(int)
 
     for crop_size in scales:
         stride_x = int(crop_size * (1 - overlap_ratio))
         stride_y = int(crop_size * (1 - overlap_ratio))
-
-        x_steps = list(range(0, W - crop_size, stride_x))
-        y_steps = list(range(0, H - crop_size, stride_y))
-        if x_steps[-1] + crop_size < W:
-            x_steps.append(W - crop_size)
-        if y_steps[-1] + crop_size < H:
-            y_steps.append(H - crop_size)
-
-        print(f"🔹 Scale {crop_size}px → {len(x_steps)*len(y_steps)} crops")
+        x_steps = list(range(0, W - crop_size, stride_x)) + [W - crop_size]
+        y_steps = list(range(0, H - crop_size, stride_y)) + [H - crop_size]
 
         for top in y_steps:
             for left in x_steps:
-                box = (left, top, left + crop_size, top + crop_size)
-                crop = image.crop(box)
-                label, conf, _ = classify_room(crop)
+                crop = image.crop((left, top, left + crop_size, top + crop_size))
+                label, conf = classify_room(crop)
 
+                # ## bedroom case
+                if conf > (confidence_threshold-0.4) and (label == "a bed" or label == "a single bed" or label == "a double bed" or label =="a duvet" or label =="a bedroom"):
+                    center_x = left + crop_size // 2
+                    center_y = top + crop_size // 2
+                    
+                    # clean the label
+                    label_clean = label.split("a photo of ")[-1].strip()
+
+                    detections.append((center_x, center_y, label_clean, conf))
+
+                    # Count unique label once per detection
+                    label_counts[label_clean] += 1
+                
+                #  ## kitchen case
+                if conf > (confidence_threshold-0.4) and label == "a kitchen stove" or label == "a stove vent hood" or label == "a cooking oven" or label =="a kitchen":
+                    center_x = left + crop_size // 2
+                    center_y = top + crop_size // 2
+                    
+                    # clean the label
+                    label_clean = label.split("a photo of ")[-1].strip()
+
+                    detections.append((center_x, center_y, label_clean, conf))
+
+                    # Count unique label once per detection
+                    label_counts[label_clean] += 1
+
+                ## general case
                 if conf > confidence_threshold and label != "a photo of an unknown room":
+                    print("general case")
                     center_x = left + crop_size // 2
                     center_y = top + crop_size // 2
                     
@@ -131,33 +159,48 @@ def detect_objects_multiscale_annotate(
         )
         draw.text((cx - tw//2, cy - th//2), text, fill="white", font=font)
 
+    label, conf = classify_room(image)
+    label_clean = label.split("a photo of ")[-1].strip()
+    if conf > 0.5:
+        label_counts[label_clean] += 1
+        detections.append((0, 0, label_clean, conf))
+    if conf > 0.3 and label_clean=="a photo of a kitchen":
+        label_counts[label_clean] += 1
+        detections.append((0, 0, label_clean, conf))
+    if conf > 0.3 and (label_clean=="a single bed" or label_clean=="a bed" or label_clean=="a double bed"):
+        label_counts[label_clean] += 1
+        detections.append((0, 0, label_clean, conf))
+    print(f"✅ detections: {detections}")
     print(f"✅ Total detections: {len(detections)}")
     print(f"🧾 Unique label summary: {dict(label_counts)}")
-
     return annotated, dict(label_counts)
-
 
 ### cleaness
 
 # Existing object labels (shortened for clarity)
-object_labels = [
-  "a photo of a single bed",
+labels = [
+    "a photo of a single bed",
     "a photo of a double bed",
     "a photo of a bed",
+    "a photo of a bedroom",
     "a photo of a bathroom basin",
     "a photo of a bath",
+    "a photo of a bathroom",
     "a photo of a refrigerator",
     "a photo of a duvet",
     "a photo of a pillow",
     "a photo of a television",
     "a photo of a wardrobe",
+    "a photo of a washing machine",
     "a photo of a Single Ended Bath",
     "a photo of a stove vent hood",
     "a photo of a sofa",
+    "a photo of a leather sofa",
+    "a photo of a living room",
     "a photo of a shower head",
     "a photo of a heater radiator",
     "a photo of a kitchen stove",
-    "a photo of a kitchen cabinets",
+    "a photo of a kitchen",
     "a photo of a toilet seat ",
     "a photo of a kitchen sink",
     "a photo of a dinning table and chairs",
@@ -177,8 +220,78 @@ object_labels = [
     "a photo of a shop",
     "a photo of a window",
     "a photo of curtains",
-    "a photo of an unknown room"
+    "a photo of an unknown room",
+    "a photo of a building",
+    "a photo of a sea", 
+    "a photo of seaview",
+    "a photo of a single bed",
+    "a photo of a double bed",
+    "a photo of a bed",
+    "a photo of a bedroom",
+    "a photo of a bathroom basin",
+    "a photo of a bath",
+    "a photo of a bathroom",
+    "a photo of a refrigerator",
+    "a photo of a duvet",
+    "a photo of a pillow",
+    "a photo of a television",
+    "a photo of a wardrobe",
+    "a photo of a stove vent hood",
+    "a photo of a sink tap",
+    "a photo of a sofa",
+    "a photo of a tub"
+    "a photo of a shower head",
+    "a photo of a heater radiator",
+    "a photo of a kitchen stove",
+    "a photo of a kitchen cabinets and sink",
+    "a photo of a cooking oven",
+    "a photo of a kitchen",
+    "a photo of a toilet seat ",
+    "a photo of a kitchen sink",
+    "a photo of a dinning table and chairs",
+    "a photo of stairs",
+    "a photo of a garden",
+    "a photo of a car",
+    "a photo of a tree",
+    "a photo of a cabinet and sink",
+    "a photo of a door",
+    "a photo of a tiles",
+    "a photo of a carpet",
+    "a photo of a wood floor",
+    "a photo of an electric socket",
+    "a photo of an alarm",
+    "a photo of a camera",
+    "a photo of a celing light",
+    "a photo of a shop",
+    "a photo of a window",
+    "a photo of curtains",
+    "a photo of an unknown room",
+    "a photo of a gym",
+    "a photo of a training machine",
+    "a photo of a 2D house layout",
+    "a photo of a real estate floor plan with dimensions",
+    "a photo of a residential blueprint"
 ]
+
+# Remove duplicates while preserving order
+labels = list(dict.fromkeys(labels))
+
+# labels = [
+#     "a photo of a single bed", "a photo of a double bed", "a photo of a bed",
+#     "a photo of a bathroom basin", "a photo of a bath", "a photo of a refrigerator",
+#     "a photo of a bathroom", "a photo of a duvet", "a photo of a pillow",
+#     "a photo of a television", "a photo of a wardrobe", "a photo of a single ended bath",
+#     "a photo of a stove vent hood", "a photo of a sofa", "a photo of a shower head",
+#     "a photo of a heater radiator", "a photo of a kitchen stove", "a photo of a kitchen",
+#     "a photo of a toilet seat", "a photo of a kitchen sink", "a photo of a dining table and chairs",
+#     "a photo of stairs", "a photo of a garden", "a photo of a car", "a photo of a tree",
+#     "a photo of cabinets", "a photo of a door", "a photo of tiles", "a photo of a carpet",
+#     "a photo of a wood floor", "a photo of an electric socket", "a photo of an alarm",
+#     "a photo of a camera", "a photo of a ceiling light", "a photo of a shop",
+#     "a photo of a window", "a photo of curtains", "a photo of an unknown room",
+#     "a photo of a living room", "a photo of a floorplan","a photo of a gym","a photo of a gym tools","a photo of a gym machine"
+# ]
+
 # New: cleanliness prompts
 cleanliness_prompts = [
     "This is a very clean room, everything is tidy and organized.",   # 1
@@ -205,7 +318,7 @@ def classify_room_and_cleanliness(
         - cleanliness_reason: str
     """
     # Process for both object detection and cleanliness
-    obj_inputs = processor(text=object_labels, images=image,
+    obj_inputs = processor(text=labels, images=image,
                            return_tensors="pt", padding=True)
     clean_inputs = processor(text=cleanliness_prompts, images=image,
                              return_tensors="pt", padding=True)
@@ -220,7 +333,7 @@ def classify_room_and_cleanliness(
         obj_probs = obj_outputs.logits_per_image.softmax(dim=1)
         obj_pred = torch.argmax(obj_probs, dim=1).item()
         obj_conf = obj_probs[0, obj_pred].item()
-        best_label = object_labels[obj_pred]
+        best_label = labels[obj_pred]
 
         # Apply threshold
         if obj_conf < object_conf_threshold:
@@ -240,163 +353,60 @@ def classify_room_and_cleanliness(
     return best_label, obj_conf, cleanliness_level, cleanliness_reason
 
 
-
 import os
 import json
 from PIL import Image
 import matplotlib.pyplot as plt
 
-
-# ------------------------------------------------------------
-def process_all_properties(root_dir):
-    """
-    Walk through the main directory and process all images
-    inside each property_* folder.
-    """
-    for property_folder in os.listdir(root_dir):
-        full_property_path = os.path.join(root_dir, property_folder)
-
-        # Only process directories like property_XXXXXX
-        if not os.path.isdir(full_property_path):
-            continue
-        
-        print(f"\n📁 Processing folder: {property_folder}")
-
-        # Loop through all images inside the folder
-        for file in os.listdir(full_property_path):
-            if not file.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
-                continue
-
-            image_path = os.path.join(full_property_path, file)
-
-            # -----------------------------
-            # CHECK IMAGE SIZE
-            # -----------------------------
-            try:
-                img = Image.open(image_path)
-                w, h = img.size
-            except:
-                print(f"  ⚠️ Failed to open: {file}")
-                continue
-
-            if w < 300 or h < 400:
-                print(f"  ⏩ Skipping {file} (too small: {w}x{h})")
-                continue
-
-            print(f"  🖼️ Processing image: {file}")
-
-            # ------------------------------------------------------------
-            # RUN DETECTION + CLEANLINESS
-            # ------------------------------------------------------------
-            annotated_image, labels_dict = detect_objects_multiscale_annotate(
-                image_path,
-                n_scales=4,
-                overlap_ratio=0.15,
-                confidence_threshold=0.85
-            )
-
-            image = img.convert("RGB")
-            label, conf, clean_level, reason = classify_room_and_cleanliness(
-                image,
-                object_conf_threshold=0.9
-            )
-            if conf is not None:
-                if float(str(conf)) < 0.9:
-                    label="unknown"
-                    clean_level = "None"
-                    reason = "None"
-            if label=="unknown":
-                clean_level = "None"
-                reason = "None"
-                conf = "None"
-            if conf is None:
-                label="unknown"
-                clean_level = "None"
-                reason = "None"
-                conf = "None"
-
-
-                #continue
-
-            # ------------------------------------------------------------
-            # CREATE JSON OUTPUT
-            # ------------------------------------------------------------
-            json_output = {
-                "image_name": file,
-                "objects_detected": labels_dict,
-                "primary_label": label,
-                "primary_confidence": conf,
-                "cleanliness_level": clean_level,
-                "cleanliness_reason": reason
-            }
-
-            # ------------------------------------------------------------
-            # SAVE JSON NEXT TO IMAGE
-            # ------------------------------------------------------------
-            json_path = os.path.join(
-                full_property_path, file.rsplit(".",1)[0] + ".json"
-            )
-            with open(json_path, "w") as f:
-                json.dump(json_output, f, indent=4)
-
-            print(f"  ✅ Saved JSON: {json_path}")
-
-    print("\n🎉 All images processed!")
-
-
-
 ## classify rooms as well as detecting objects
-
-labels = [
+def has_any(category_objects):
+    return any(obj.lower() in detected for obj in category_objects)
+# Kitchen rules
+kitchen_objects = [
+"a photo of a kitchen cabinets",
+]
+# Bedroom rules
+bedroom_objects = [
+    "a photo of a bed",
     "a photo of a single bed",
     "a photo of a double bed",
-    "a photo of a bed",
-    "a photo of a bathroom basin",
-    "a photo of a bath",
-    "a photo of a refrigerator",
     "a photo of a duvet",
     "a photo of a pillow",
-    "a photo of a television",
     "a photo of a wardrobe",
-    "a photo of a Single Ended Bath",
-    "a photo of a stove vent hood",
-    "a photo of a sofa",
-    "a photo of a living room",
-    "a photo of a shower head",
-    "a photo of a heater radiator",
-    "a photo of a kitchen stove",
-    "a photo of a kitchen cabinets",
-    "a photo of a toilet seat ",
-    "a photo of a kitchen sink",
-    "a photo of a dinning table and chairs",
-    "a photo of stairs",
-    "a photo of a garden",
-    "a photo of a car",
-    "a photo of a tree",
-    "a photo of a cabinets",
-    "a photo of a door",
-    "a photo of a tiles",
-    "a photo of a carpet",
-    "a photo of a wood floor",
-    "a photo of an electric socket",
-    "a photo of an alarm",
-    "a photo of a camera",
-    "a photo of a celing light",
-    "a photo of a shop",
-    "a photo of a window",
-    "a photo of curtains",
-    "a photo of an unknown room"
 ]
+# Bathroom rules
+bathroom_objects = [
+    "a photo of a bath",
+    "a photo of a bathroom basin",
+    "a photo of a shower head",
+    "a photo of a toilet seat",
+    "a photo of a single ended bath",
+]
+# Living room rules
+livingroom_objects = [
+    "a photo of a sofa",
+    "a photo of a television",
+    "a photo of a dinning table and chairs",
+    "a photo of a heater radiator",
+    "a photo of a living room",
+]
+# Outdoor rules
+outdoor_objects = [
+    "a photo of a garden",
+    "a photo of a tree",
+    "a photo of a car",
+]
+
 # 3. Inference function
 def classify_room(imagee):
     #image = Image.open(image_path).convert("RGB")
-    inputs = processor(text=labels, images=imagee, return_tensors="pt", padding=True)
+    inputs = processor(text=labels, images=[imagee], return_tensors="pt", padding=True)
     with torch.no_grad():
         outputs = model(**inputs)
         logits_per_image = outputs.logits_per_image
         probs = logits_per_image.softmax(dim=1)
         pred = torch.argmax(probs, dim=1).item()
-    return labels[pred], probs[0][pred].item(),inputs
+    return labels[pred], probs[0][pred].item()
 
 def classify_room_from_objects(objects_dict):
 
@@ -414,52 +424,10 @@ def classify_room_from_objects(objects_dict):
     # ---------------------------
     # ---------------------------
 
-    # Kitchen rules
-    kitchen_objects = [
-        "a photo of a refrigerator",
-        "a photo of a kitchen stove",
-        "a photo of a stove vent hood",
-        "a photo of a kitchen cabinets",
-        "a photo of a kitchen sink",
-    ]
-    # Bedroom rules
-    bedroom_objects = [
-        "a photo of a bed",
-        "a photo of a single bed",
-        "a photo of a double bed",
-        "a photo of a duvet",
-        "a photo of a pillow",
-        "a photo of a wardrobe",
-    ]
-
-    # Bathroom rules
-    bathroom_objects = [
-        "a photo of a bath",
-        "a photo of a bathroom basin",
-        "a photo of a shower head",
-        "a photo of a toilet seat",
-        "a photo of a single ended bath",
-    ]
-
-    # Living room rules
-    livingroom_objects = [
-        "a photo of a sofa",
-        "a photo of a television",
-        "a photo of a dinning table and chairs",
-        "a photo of a heater radiator",
-        "a photo of a living room",
-    ]
-
-    # Outdoor rules
-    outdoor_objects = [
-        "a photo of a garden",
-        "a photo of a tree",
-        "a photo of a car",
-    ]
-
-    # Helper for rule matching
     def has_any(category_objects):
         return any(obj.lower() in detected for obj in category_objects)
+
+    # Helper for rule matching
 
     # ---------------------------
     # DECISION LOGIC
@@ -505,8 +473,94 @@ def classify_room_from_objects(objects_dict):
         return best_room
     else:
         return "unknown"
+def classify_room_from_objects_multi_label(objects_dict):
+    """Infer room type(s) from detected objects. Returns multiple types if necessary."""
+    # Lowercase keys and strip spaces
+    detected = {k.lower().strip(): v for k, v in objects_dict.items()}
 
+    categories = {
+        "floorplan": ["a floorplan"],
+        "bedroom": ["a bed", "a single bed", "a double bed", "a duvet", "a bedroom"],
+        "bathroom": ["a bath", "a bathroom basin", "a shower head", "a toilet seat", "a single ended bath", "a bathroom", "a tub"],
+        "living/sitting room": ["a sofa", "a leather sofa", "a dinning table and chairs","a living room"],
+        "outdoor": ["a garden", "a tree", "a car"],
+        "kitchen": ["a refrigerator", "a kitchen stove", "a stove vent hood", "a kitchen", "a kitchen sink","a kitchen", "a cabinet and sink"],
+        "gym": ["a gym", "a training machine"]
 
+    }
+
+    matched = []
+
+    for room, objects in categories.items():
+        # Normalize category objects
+        normalized_objects = [obj.lower().strip() for obj in objects]
+        if any(obj in detected for obj in normalized_objects):
+            matched.append(room)
+
+    if not matched:
+        return "unknown"
+
+    return " & ".join(matched) if len(matched) > 1 else matched[0]
+def classify_room_from_objects_multi_label_count(objects_dict, min_score=3):
+    """
+    Infer room type from detected objects using object counts.
+
+    Args:
+        objects_dict (dict): {"object_label": count, ...}
+        min_score (int): minimum total score to confidently assign a room
+
+    Returns:
+        str: room type or "unknown"
+    """
+    # Normalize keys
+    detected = {k.lower().strip(): v for k, v in objects_dict.items()}
+    categories = {
+        "floorplan": ["a floorplan","a 2D house layout", "a real estate floor plan with dimensions", "a residential blueprint"],
+        "bedroom": ["a bed", "a single bed", "a double bed", "a duvet", "a bedroom"],
+        "bathroom": ["a bath", "a bathroom basin", "a shower head", "a toilet seat", "a single ended bath", "a bathroom"],
+        "living/sitting room": ["a sofa", "a dinning table and chairs","a living room"],
+        "outdoor": ["a garden", "a tree", "a car", "a building", "a sea", "a seaview"],
+        "kitchen/cooking area": ["a refrigerator", "a kitchen stove", "a stove vent hood", "a kitchen", "a kitchen sink","a kitchen", "a cabinet and sink","a kitchen cabinet and sink","a sink tap","a cooking oven"],
+        "gym": ["a gym", "a training machine"],
+        "laundry": ["a washing machine"]
+    }
+
+    # Compute scores per room
+    room_scores = {room: 0 for room in categories}
+    for room, objs in categories.items():
+        for obj in objs:
+            if obj in detected:
+                room_scores[room] += detected[obj]  # count objects for weight
+
+    # Find the room with highest score
+    # best_room = max(room_scores, key=room_scores.get)
+    # best_score = room_scores[best_room]
+
+    if room_scores.get("floorplan", 0) >= 1:
+            return "floorplan"
+
+     # ---------------------------
+    # Rooms that pass threshold
+    # ---------------------------
+    valid_rooms = [
+        room for room, score in room_scores.items()
+        if score >= min_score and room != "floorplan"
+    ]
+    if not valid_rooms:
+            if room_scores.get("bedroom", 0) == 1:
+                return "bedroom"
+    else:
+        return "unknown"
+
+    if len(valid_rooms) == 1:
+        return valid_rooms[0]
+
+    # ---------------------------
+    # Mixed room case
+    # ---------------------------
+    return " & ".join(sorted(valid_rooms))
+
+# ------------------------------------------------------------
 def process_all_properties(root_dir):
     """
     Walk through the main directory and process all images
@@ -515,17 +569,22 @@ def process_all_properties(root_dir):
     for property_folder in os.listdir(root_dir):
         full_property_path = os.path.join(root_dir, property_folder)
 
+        # Only process directories like property_XXXXXX
         if not os.path.isdir(full_property_path):
             continue
         
         print(f"\n📁 Processing folder: {property_folder}")
 
+        # Loop through all images inside the folder
         for file in os.listdir(full_property_path):
             if not file.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
                 continue
 
             image_path = os.path.join(full_property_path, file)
 
+            # -----------------------------
+            # CHECK IMAGE SIZE
+            # -----------------------------
             try:
                 img = Image.open(image_path)
                 w, h = img.size
@@ -539,44 +598,45 @@ def process_all_properties(root_dir):
 
             print(f"  🖼️ Processing image: {file}")
 
-
-            ## detection on full image
-
-            labels_dict, conf_O, _ = classify_room(img)
-
-            if conf_O < 0.3:
-                labels_dict = ""
             # ------------------------------------------------------------
-            # DETECTION
+            # RUN DETECTION + CLEANLINESS
             # ------------------------------------------------------------
             # annotated_image, labels_dict = detect_objects_multiscale_annotate(
             #     image_path,
             #     n_scales=4,
-            #     overlap_ratio=0.15,
-            #     confidence_threshold=0.85
+            #     overlap_ratio=0.1,
+            #     confidence_threshold=0.7
             # )
+            annotated_image, labels_dict = detect_objects_multiscale_annotate(image_path)
 
-
-            # CLIP classification
             image = img.convert("RGB")
             label, conf, clean_level, reason = classify_room_and_cleanliness(
-                image, object_conf_threshold=0.9
+                image,
+                object_conf_threshold=0.9
             )
-
-            # Clean fallback logic
-            if conf is None or (str(conf).replace(".", "").isdigit() and float(conf) < 0.9):
-                label = "unknown"
+            if conf is not None:
+                if float(str(conf)) < 0.9:
+                    label="unknown"
+                    clean_level = "None"
+                    reason = "None"
+            if label=="unknown":
+                clean_level = "None"
+                reason = "None"
+                conf = "None"
+            if conf is None:
+                label="unknown"
                 clean_level = "None"
                 reason = "None"
                 conf = "None"
 
-            # ------------------------------------------------------------
-            # ROOM TYPE FROM OBJECTS
-            # ------------------------------------------------------------
-            room_type = classify_room_from_objects(labels_dict)
 
+                #continue
+            room_type = classify_room_from_objects_multi_label_count(labels_dict)
+
+            # Keep only items with value >= 2
+            labels_dict = {k: v for k, v in labels_dict.items() if v >= 2}
             # ------------------------------------------------------------
-            # JSON OUTPUT
+            # CREATE JSON OUTPUT
             # ------------------------------------------------------------
             json_output = {
                 "image_name": file,
@@ -585,11 +645,15 @@ def process_all_properties(root_dir):
                 "primary_confidence": conf,
                 "cleanliness_level": clean_level,
                 "cleanliness_reason": reason,
-                "room_type": room_type   # <-------- NEW KEY
+                "room_type": room_type
             }
 
-            # Save JSON
-            json_path = os.path.join(full_property_path, file.rsplit(".",1)[0] + ".json")
+            # ------------------------------------------------------------
+            # SAVE JSON NEXT TO IMAGE
+            # ------------------------------------------------------------
+            json_path = os.path.join(
+                full_property_path, file.rsplit(".",1)[0] + ".json"
+            )
             with open(json_path, "w") as f:
                 json.dump(json_output, f, indent=4)
 
@@ -597,7 +661,102 @@ def process_all_properties(root_dir):
 
     print("\n🎉 All images processed!")
 
+# def process_all_properties(root_dir):
+#     """
+#     Walk through the main directory and process all images
+#     inside each property_* folder.
+#     """
+#     for property_folder in os.listdir(root_dir):
+#         full_property_path = os.path.join(root_dir, property_folder)
+
+#         if not os.path.isdir(full_property_path):
+#             continue
+        
+#         print(f"\n📁 Processing folder: {property_folder}")
+
+#         for file in os.listdir(full_property_path):
+#             if not file.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+#                 continue
+
+#             image_path = os.path.join(full_property_path, file)
+
+#             try:
+#                 img = Image.open(image_path)
+#                 w, h = img.size
+#             except:
+#                 print(f"  ⚠️ Failed to open: {file}")
+#                 continue
+
+#             if w < 300 or h < 400:
+#                 print(f"  ⏩ Skipping {file} (too small: {w}x{h})")
+#                 continue
+
+#             print(f"  🖼️ Processing image: {file}")
+
+
+#             ## detection on full image
+
+#             labels_dict, conf_O, _ = classify_room(img)
+
+#             if conf_O < 0.3:
+#                 labels_dict = ""
+#             # ------------------------------------------------------------
+#             # DETECTION
+#             # ------------------------------------------------------------
+#             # annotated_image, labels_dict = detect_objects_multiscale_annotate(
+#             #     image_path,
+#             #     n_scales=4,
+#             #     overlap_ratio=0.15,
+#             #     confidence_threshold=0.85
+#             # )
+
+
+#             # CLIP classification
+#             image = img.convert("RGB")
+#             label, conf, clean_level, reason = classify_room_and_cleanliness(
+#                 image, object_conf_threshold=0.9
+#             )
+
+#             # Clean fallback logic
+#             if conf is None or (str(conf).replace(".", "").isdigit() and float(conf) < 0.9):
+#                 label = "unknown"
+#                 clean_level = "None"
+#                 reason = "None"
+#                 conf = "None"
+
+#             # ------------------------------------------------------------
+#             # ROOM TYPE FROM OBJECTS
+#             # ------------------------------------------------------------
+#             # room_type = classify_room_from_objects(labels_dict)
+#             room_type = classify_room_from_objects_multi_label(labels_dict)
+
+#             # ------------------------------------------------------------
+#             # JSON OUTPUT
+#             # ------------------------------------------------------------
+#             json_output = {
+#                 "image_name": file,
+#                 "objects_detected": labels_dict,
+#                 "primary_label": label,
+#                 "primary_confidence": conf,
+#                 "cleanliness_level": clean_level,
+#                 "cleanliness_reason": reason,
+#                 "room_type": room_type   # <-------- NEW KEY
+#             }
+
+#             # Save JSON
+#             json_path = os.path.join(full_property_path, file.rsplit(".",1)[0] + ".json")
+#             with open(json_path, "w") as f:
+#                 json.dump(json_output, f, indent=4)
+
+#             print(f"  ✅ Saved JSON: {json_path}")
+
+#     print("\n🎉 All images processed!")
+
 
 ROOT_IMAGE_DIR = "/mnt/c/Muzzi work/DAS4Whales-main/houseclassification/rightmove_images_Glasgow_09_12_2025"
+ROOT_IMAGE_DIR = "/mnt/c/Muzzi work/DAS4Whales-main/houseclassification/rightmove_data_20_Glasgow/images/test"
+ROOT_IMAGE_DIR = "/mnt/c/Muzzi work/test/s"
+#ROOT_IMAGE_DIR = "/mnt/c/Muzzi work/test"
+
 process_all_properties(ROOT_IMAGE_DIR)
 

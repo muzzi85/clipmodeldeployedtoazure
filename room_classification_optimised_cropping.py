@@ -34,14 +34,13 @@ labels = [
     "a photo of a heater radiator",
     "a photo of a kitchen stove",
     "a photo of a kitchen",
-    "a photo of a toilet seat ",
+    "a photo of a toilet seat or loo",
     "a photo of a kitchen sink",
     "a photo of a dinning table and chairs",
     "a photo of stairs",
     "a photo of a garden",
     "a photo of a car",
     "a photo of a tree",
-    "a photo of a cabinets",
     "a photo of a door",
     "a photo of a tiles",
     "a photo of a carpet",
@@ -70,23 +69,19 @@ labels = [
     "a photo of a television",
     "a photo of a wardrobe",
     "a photo of a stove vent hood",
-    "a photo of a sink tap",
     "a photo of a sofa",
     "a photo of a tub"
     "a photo of a shower head",
     "a photo of a heater radiator",
     "a photo of a kitchen stove",
-    "a photo of a kitchen cabinets and sink",
     "a photo of a cooking oven",
     "a photo of a kitchen",
-    "a photo of a toilet seat ",
     "a photo of a kitchen sink",
     "a photo of a dinning table and chairs",
     "a photo of stairs",
     "a photo of a garden",
     "a photo of a car",
     "a photo of a tree",
-    "a photo of a cabinet and sink",
     "a photo of a door",
     "a photo of a tiles",
     "a photo of a carpet",
@@ -199,7 +194,7 @@ def detect_objects_multiscale_annotate(
             cy = top + size // 2
 
             # Relaxed bedroom
-            if conf > confidence_threshold - 0.2 and label_clean in {
+            if conf > confidence_threshold - 0.1 and label_clean in {
                 "a bed", "a single bed", "a double bed", "a duvet", "a bedroom", "a pillow"
             }:
                 detections.append((cx, cy, label_clean, conf))
@@ -303,10 +298,10 @@ def classify_room_from_objects_multi_label_count(objects_dict, min_score=3):
     categories = {
         "floorplan": ["a floorplan","a 2D house layout", "a real estate floor plan with dimensions", "a residential blueprint"],
         "bedroom": ["a bed", "a single bed", "a double bed", "a duvet", "a bedroom"],
-        "bathroom": ["a bath", "a bathroom basin", "a shower head", "a toilet seat", "a single ended bath", "a bathroom"],
+        "bathroom": ["a bath", "a bathroom basin", "a shower head", "a toilet seat or loo", "a single ended bath", "a bathroom"],
         "living/sitting room": ["a sofa", "a dinning table and chairs","a living room"],
         "outdoor": ["a garden", "a tree", "a car", "a building", "a sea", "a seaview"],
-        "kitchen/cooking area": ["a kitchen cabinets and sink", "a refrigerator", "a kitchen stove", "a stove vent hood", "a kitchen", "a kitchen sink","a kitchen", "a cabinet and sink","a kitchen cabinet and sink","a sink tap","a cooking oven"],
+        "kitchen/cooking area": ["a refrigerator", "a kitchen stove", "a stove vent hood", "a kitchen", "a kitchen sink","a kitchen","a cooking oven"],
         "gym": ["a gym", "a training machine"],
         "laundry": ["a washing machine"]
     }
@@ -322,7 +317,7 @@ def classify_room_from_objects_multi_label_count(objects_dict, min_score=3):
     # best_room = max(room_scores, key=room_scores.get)
     # best_score = room_scores[best_room]
 
-    if room_scores.get("floorplan", 0) >= 1:
+    if room_scores.get("floorplan", 0) >= 5:
             return "floorplan"
 
      # ---------------------------
@@ -441,7 +436,7 @@ def process_all_properties(root_dir):
 
 ROOT_IMAGE_DIR = "/mnt/c/Muzzi work/DAS4Whales-main/houseclassification/rightmove_images_Glasgow_09_12_2025"
 ROOT_IMAGE_DIR = "/mnt/c/Muzzi work/DAS4Whales-main/houseclassification/rightmove_data_20_Glasgow/images/test"
-ROOT_IMAGE_DIR = "/mnt/c/Muzzi work/test/s"
+#ROOT_IMAGE_DIR = "/mnt/c/Muzzi work/test/s"
 ROOT_IMAGE_DIR = "/mnt/c/Muzzi work/test"
 process_all_properties(ROOT_IMAGE_DIR)
 
