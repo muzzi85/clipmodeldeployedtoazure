@@ -1,247 +1,231 @@
-docker build -t rightmoveacrclp.azurecr.io/clip-worker:latest .
+# 🏠 AI-Powered Real Estate Image Intelligence Pipeline
+
+An enterprise-style computer vision pipeline that automatically analyzes real-estate listing images using **OpenAI CLIP**, **Azure Event-Driven Architecture**, and distributed AI workers.
+
+The platform transforms raw property images into structured intelligence including:
+
+- Room classification
+- Object detection
+- Property feature extraction
+- Cleanliness estimation
+- Structured JSON metadata
+- Scalable cloud-based inference
+
+Built using:
+`Python • OpenAI CLIP • Azure Queue Storage • Event Grid • Azure Container Apps • Docker`
+
+---
+
+# 🚀 Business Problem
 
-docker push rightmoveacrclp.azurecr.io/clip-worker:latest
+Real-estate platforms contain millions of unstructured property images.
+
+Manual tagging of:
+- kitchens
+- bedrooms
+- bathrooms
+- furniture
+- property conditions
+- amenities
 
+...is expensive, inconsistent, and difficult to scale.
 
-az eventgrid event-subscription create \
-    --name rightmove-queue-sub \
-    --source-resource-id /subscriptions/b2dc8e41-a4c4-4f97-a443-7446dfe9dce2/resourceGroups/rightmove-rg/providers/Microsoft.Storage/storageAccounts/rightmoveukstorage \
-    --endpoint-type azurestoragequeue \
-    --endpoint https://rightmoveukstorage.queue.core.windows.net/rightmove-images-queue \
-    --included-event-types Microsoft.Storage.BlobCreated \
-    --subject-begins-with "/blobServices/default/containers/*/*_rightmove_images/"
+This project automates image understanding using AI to help:
 
+✅ PropTech platforms  
+✅ Real-estate analytics teams  
+✅ Listing quality systems  
+✅ Recommendation engines  
+✅ Search & filtering systems  
+✅ Property valuation workflows  
 
-az containerapp env var set \
-  --name clip-worker-app \
-  --resource-group rightmove-rg \
-  --variables AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=rightmoveukstorage;AccountKey="key";EndpointSuffix=core.windows.net"
+---
 
+# 💡 What This Platform Does
 
-az containerapp update \
-  --name clip-worker-app \
-  --resource-group rightmove-rg \
-  --set-env-vars AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=rightmoveukstorage;AccountKey="key";EndpointSuffix=core.windows.net" \
-INPUT_DIR="/data/input" \
-OUTPUT_DIR="/data/output" \
-BATCH_SIZE="32"
+The pipeline automatically:
 
+## 🔹 Detects Property Features
+- Beds
+- Sofas
+- Kitchen cabinets
+- Bathrooms
+- Refrigerators
+- Stairs
+- Windows
+- Gardens
+- Furniture
+- Flooring
+- Lighting
 
-az storage queue list \
-  --account-name rightmoveukstorage \
-  --account-key "key" \
-  --output table
+## 🔹 Infers Room Types
+Using symbolic reasoning rules based on detected objects.
 
+Example:
+- bed + wardrobe → bedroom
+- refrigerator + stove + sink → kitchen
 
-az storage container list \
-  --account-name rightmoveukstorage \
-  --account-key "key" \
-  --output table
+## 🔹 Estimates Cleanliness
+AI-based cleanliness scoring:
+- clean
+- messy
+- dirty
 
+## 🔹 Generates Structured Metadata
 
-az storage blob upload \
-  --account-name rightmoveukstorage \
-  --account-key "key" \
-  --container-name london-rent \
-  --file ./1.jpg \
-  --name test-1.jpg
+Example output:
 
-az storage message put \
-  --content '{"url":"https://rightmoveukstorage.blob.core.windows.net/london-rent/01-02-2026/rent_london_rightmove_images/107278532/1.jpg"}' \
-  --queue-name rightmove-images-queue \
-  --account-name rightmoveukstorage \
-  --account-key "key"
+```json
+{
+    "image_name": "12 (2).jpg",
+    "objects_detected": {
+        "a kitchen cabinets": 14,
+        "stairs": 1,
+        "a dinning table and chairs": 1,
+        "a tiles": 2,
+        "a celing light": 1,
+        "a refrigerator": 1
+    },
+    "primary_label": "unknown",
+    "primary_confidence": "None",
+    "cleanliness_level": "None",
+    "cleanliness_reason": "None",
+    "room_type": "kitchen"
+}
+```
 
+---
 
-az storage blob exists \
-  --account-name rightmoveukstorage \
-  --account-key "key" \
-  --container-name london-rent \
-  --name "01-02-2026/rent_london_rightmove_images/107278532/1.jpg"
+# 🧠 AI & Computer Vision Architecture
 
+## 1. Zero-Shot CLIP Vision Inference
 
-az storage blob upload \
-  --account-name rightmoveukstorage \
-  --account-key "key" \
-  --container-name london-rent \
-  --file ./1.jpg \
-  --name test-1.jpg
+The system uses OpenAI CLIP for:
+- image understanding
+- semantic object classification
+- room inference
 
+Unlike traditional CNN classifiers, CLIP enables:
+- zero-shot classification
+- flexible prompt engineering
+- extensible object categories
 
+---
 
-FOLDER_PREFIX="01-02-2026/rent_london_rightmove_images/107278532/"
+## 2. Multi-Scale Object Detection
 
-for blob in $(az storage blob list \
-    --account-name rightmoveukstorage \
-    --account-key "key" \
-    --container-name london-rent \
-    --prefix "$FOLDER_PREFIX" \
-    --query "[].name" \
-    --output tsv)
-do
-  az storage message put \
-    --content "{\"url\":\"https://rightmoveukstorage.blob.core.windows.net/london-rent/$blob\"}" \
-    --queue-name rightmove-images-queue \
-    --account-name rightmoveukstorage \
-    --account-key "key"
-  echo "Enqueued: $blob"
-done
+Instead of analyzing the entire image once, the platform:
 
+✅ Crops images into overlapping patches  
+✅ Runs inference across multiple scales  
+✅ Detects small objects hidden in larger scenes  
+✅ Improves room classification accuracy  
 
-az storage queue clear \
-  --name rightmove-images-queue \
-  --account-name rightmoveukstorage \
-  --account-key "key"
+---
 
+## 3. Symbolic Reasoning Layer
 
-az storage message put   --content '{"url":"https://rightmoveukstorage.blob.core.windows.net/london-rent/01-02-2026/rent_london_rightmove_images/107278532/1.jpg"}'   --queue-name rightmove-images-queue   --account-name rightmoveukstorage   --account-key "key"
+Detected objects are passed into rule-based logic to infer room types.
 
-az storage message put   --content '{"url":"https://rightmoveukstorage.blob.core.windows.net/london-rent/1.jpg"}'   --queue-name rightmove-images-queue   --account-name rightmoveukstorage   --account-key "key"
+This hybrid architecture combines:
+- probabilistic AI inference
+- deterministic symbolic reasoning
 
+Result:
+✅ more explainable outputs  
+✅ higher consistency  
+✅ easier debugging  
 
-az storage message put \
-  --queue-name rightmove-images-queue \
-  --account-name rightmoveukstorage \
-  --account-key "key" \
-  --content '{
-    "container": "london-rent",
-    "prefix": "01-02-2026/rent_london_rightmove_images/107278532/"
-  }'
+---
 
-az storage message put \
-  --queue-name rightmove-images-queue \
-  --account-name rightmoveukstorage \
-  --account-key "key" \
-  --content '{
-    "container": "london-rent",
-    "prefix": "01-02-2026/rent_london_rightmove_images/113354258/"
-  }'
+# ☁️ Cloud-Native Distributed Architecture
 
+The platform is built as an event-driven Azure pipeline.
 
-az storage message put \
-  --queue-name rightmove-images-queue \
-  --account-name rightmoveukstorage \
-  --account-key "key" \
-  --content '{
-    "container": "london-rent",
-    "prefix": "01-02-2026/rent_london_rightmove_images/107278532/1.jpg"
-  }'
+## Architecture Components
 
+### Azure Blob Storage
+Stores uploaded property images.
 
+### Azure Event Grid
+Triggers events whenever new images arrive.
 
-az storage message put \
-  --queue-name rightmove-images-queue \
-  --account-name rightmoveukstorage \
-  --account-key "key" \
-  --content '{
-    "container": "london-rent",
-    "prefix": "1.jpg"
-  }'
+### Azure Queue Storage
+Distributes processing tasks asynchronously.
 
+### Azure Container Apps
+Runs scalable inference workers.
 
+### Dockerized Workers
+Parallel AI image processing.
 
-# Delete the queue
-az storage queue delete --name rightmove-images-queue --account-name rightmoveukstorage --account-key "key"
+---
 
-# Recreate it
-az storage queue create --name rightmove-images-queue --account-name rightmoveukstorage --account-key "key"
+# ⚡ Key Technical Features
 
+## AI Features
+- OpenAI CLIP inference
+- Zero-shot object detection
+- Multi-scale image analysis
+- Cleanliness classification
+- Symbolic reasoning
+- Hybrid AI pipeline
 
-az storage queue list --account-name rightmoveukstorage --account-key "key"
+## Cloud Features
+- Event-driven architecture
+- Queue-based asynchronous processing
+- Distributed workers
+- Dockerized deployment
+- Azure Container Apps scaling
 
+---
 
-az storage message put \
-  --queue-name rightmove-images-queue \
-  --account-name rightmoveukstorage \
-  --account-key "key" \
-  --content '{
-    "url": "https://rightmoveukstorage.blob.core.windows.net/london-rent/1.jpg"
-  }'
+# 🛠️ Technology Stack
 
-docker run -e AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=rightmoveukstorage;AccountKey="key";EndpointSuffix=core.windows.net" clip-worker
+| Category | Technology |
+|---|---|
+| Vision AI | OpenAI CLIP |
+| Language | Python |
+| Cloud | Microsoft Azure |
+| Containers | Docker |
+| Messaging | Azure Queue Storage |
+| Event System | Azure Event Grid |
+| Compute | Azure Container Apps |
+| Image Processing | PIL / TorchVision |
+| ML Framework | PyTorch |
 
-# Delete all messages in the queue
-az storage message clear \
-  --queue-name rightmove-images-queue \
-  --account-name rightmoveukstorage \
-  --account-key key
+---
 
+# 📈 Scalability Design
 
-## stop a job
+The architecture supports:
+- horizontal worker scaling
+- asynchronous image processing
+- high-throughput property ingestion
+- distributed inference workloads
 
-az storage blob delete \
-  --container-name london-rent \
-  --name "01-02-2026/rent_london_rightmove_images/121284986/1.json" \
-  --account-name rightmoveukstorage \
-  --account-key key
+Designed for enterprise-scale processing pipelines.
 
-## clear messages
-az storage message clear   --queue-name rightmove-images-queue   --account-name rightmoveukstorage   --account-key key
+---
 
+# ⚠️ Copyright & License
 
-## update the container app
+Copyright © 2026 Mustafa Alhamdi. All rights reserved.
 
-az containerapp update   --name clip-worker-app   --resource-group rightmove-rg   --image rightmoveacrclp.azurecr.io/clip-worker:latest   --set-env-vars AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=rightmoveukstorage;AccountKey=key INPUT_DIR="/data/input" OUTPUT_DIR="/data/output" BATCH_SIZE="32"
+This repository and its contents are provided for educational, research, and portfolio purposes only.
 
-## tail last contain app logs 
+Unauthorized copying, redistribution, commercial usage, or reproduction of this codebase without explicit permission is prohibited.
 
-az containerapp logs show \
-  --name clip-worker-app \
-  --resource-group rightmove-rg \
-  --tail 50
+Third-party libraries and frameworks used in this project remain subject to their respective licenses.
 
-## delete json
+---
 
-az storage blob delete \
-  --container-name london-rent \
-  --name 01-02-2026/rent_london_rightmove_images/121284986/2.json \
-  --account-name rightmoveukstorage
+# 👨‍💻 Author
 
-## delete all jons in folder 
-
-az storage blob delete-batch \
-  --account-name rightmoveukstorage \
-  --source london-rent \
-  --pattern "01-02-2026/rent_london_rightmove_images/121284986/*.json" \
-  --account-key key
-
-az storage blob delete-batch \
-  --account-name rightmoveukstorage \
-  --source london-rent \
-  --pattern "01-02-2026/rent_london_rightmove_images/124719503/*.json" \
-  --account-key key
-
-
-## start  job
-
-az storage message put   --queue-name rightmove-images-queue   --account-name rightmoveukstorage   --account-key key   --content '{
-    "container": "london-rent",
-    "prefix": "01-02-2026/rent_london_rightmove_images/124719503/"
-  }'
-
-az storage message put   --queue-name rightmove-images-queue   --account-name rightmoveukstorage   --account-key key   --content '{
-    "container": "london-rent",
-    "prefix": ""
-  }'
-
-
-  ✅ What you should do:
-
-Wait for 0000005 to finish activating.
-
-Once active, check that replicas are running (5 in your case).
-
-Monitor the queue logs — processing should speed up.
-
-You can force it active via CLI if needed:
-
-az containerapp revision activate \
-    --name clip-worker-app \
-    --resource-group rightmove-rg \
-    --revision clip-worker-app--0000005
-
-
-## check app container updates 
-
-az containerapp logs show --name clip-worker-app --resource-group rightmove-rg --follow
+Built as an applied AI engineering project exploring:
+- computer vision
+- distributed AI systems
+- cloud-native ML infrastructure
+- scalable inference architectures
+- symbolic + probabilistic AI systems
 
