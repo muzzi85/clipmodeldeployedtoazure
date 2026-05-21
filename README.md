@@ -3,6 +3,7 @@
 An enterprise-style computer vision pipeline that automatically analyzes real-estate listing images using **OpenAI CLIP**, **Azure Event-Driven Architecture**, and distributed AI workers.
 <img width="1536" height="1024" alt="ChatGPT Image May 21, 2026, 01_20_45 AM" src="https://github.com/user-attachments/assets/d7e2fa87-fa74-4449-80e4-7222e9423940" />
 
+
 The platform transforms raw property images into structured intelligence including:
 
 - Room classification
